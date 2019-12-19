@@ -1,21 +1,15 @@
-import sys
-sys.path.append('/home/vietnguyen/LSTM_keypoint/')
-from action_recognization.model import lstm
-from action_recognization.data import common
-from action_recognization.utils.evaluation import compute_correct
+from action_recognition.model import lstm
+from action_recognition.data import common
+from action_recognition.utils.evaluation import compute_correct
 import torch
 from torch.utils.data import DataLoader
 import torch.nn as nn
 import numpy as np
 import argparse
 from torch.utils.tensorboard import SummaryWriter
+import os
 
-is_cuda = torch.cuda.is_available()
-
-if is_cuda:
-    device = torch.device('cuda')
-else:
-    device = torch.device('cpu')
+device = torch.device('cuda')if torch.cuda.is_available() else torch.device('cpu')
 
 def train(train_loader, model, criterion, optimizer):
     model.train()
@@ -47,17 +41,17 @@ def validation(val_loader, model, criterion):
     return np.mean(val_losses), correct
 
 def main(args):
-
+    base_link = os.getcwd()
     if(args.dataset == 1):
-        train_data = common.ActionRecog('database/MERL/X_train.txt', 'database/MERL/Y_train.txt')
-        val_data = common.ActionRecog('database/MERL/X_test.txt', 'database/MERL/Y_test.txt')
+        train_data = common.ActionRecog(os.path.join(base_link, 'database/MERL/X_train.txt'), os.path.join(base_link, 'database/MERL/Y_train.txt'))
+        val_data = common.ActionRecog(os.path.join(base_link, 'database/MERL/X_test.txt'), os.path.join(base_link, 'database/MERL/Y_test.txt'))
 
         input_size = 36
         output_size = 6
         n_seq = 32
     else:
-        train_data = common.UCI('database/UCI HAR Dataset/', 'train')
-        val_data = common.UCI('database/UCI HAR Dataset/', 'test')
+        train_data = common.UCI(os.path.join(base_link, 'database/UCI HAR Dataset/'), 'train')
+        val_data = common.UCI(os.path.join(base_link, 'database/UCI HAR Dataset/'), 'test')
         input_size = 9
         output_size = 6
         n_seq = 128
@@ -69,8 +63,6 @@ def main(args):
         model = lstm.LSTM(input_size, args.hidden_size, output_size, n_seq)
     elif(args.model_vers ==2):
         model = lstm.Bi_LSTM(input_size, args.hidden_size, output_size, n_seq)
-    elif(args.model_vers ==3):
-        model = BI_GRU_BN_DP_H.BI_GRU_BN_DP_H(input_size, args.hidden_size, output_size, n_seq)
     writer = SummaryWriter(log_dir='logs/tensorboard/{}'.format(args.folder))
 
     # train multiple GPUs

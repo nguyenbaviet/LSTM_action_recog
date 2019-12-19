@@ -1,5 +1,3 @@
-import sys
-sys.path.append('/home/vietnguyen/LSTM_keypoint/')
 from torch.utils.data import Dataset, TensorDataset
 import numpy as np
 import torch

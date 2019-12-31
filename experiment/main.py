@@ -1,3 +1,5 @@
+import os, sys
+sys.path.append(os.path.join(os.getcwd(), ''))
 from action_recognition.model import lstm
 from action_recognition.data import common
 from action_recognition.utils.evaluation import compute_correct
@@ -7,7 +9,6 @@ import torch.nn as nn
 import numpy as np
 import argparse
 from torch.utils.tensorboard import SummaryWriter
-import os
 
 device = torch.device('cuda')if torch.cuda.is_available() else torch.device('cpu')
 
@@ -50,8 +51,8 @@ def main(args):
         output_size = 6
         n_seq = 32
     else:
-        train_data = common.UCI(os.path.join(base_link, 'database/UCI HAR Dataset/'), 'train')
-        val_data = common.UCI(os.path.join(base_link, 'database/UCI HAR Dataset/'), 'test')
+        train_data = common.UCI(os.path.join(base_link, 'database/HAR HAR Dataset/'), 'train')
+        val_data = common.UCI(os.path.join(base_link, 'database/HAR HAR Dataset/'), 'test')
         input_size = 9
         output_size = 6
         n_seq = 128
@@ -63,6 +64,10 @@ def main(args):
         model = lstm.LSTM(input_size, args.hidden_size, output_size, n_seq)
     elif(args.model_vers ==2):
         model = lstm.Bi_LSTM(input_size, args.hidden_size, output_size, n_seq)
+    elif(args.model_vers == 3):
+        model = lstm.RNN(input_size, args.hidden_size, output_size, n_seq)
+    elif(args.model_vers == 4):
+        model = lstm.GRU(input_size, args.hidden_size, output_size, n_seq)
     writer = SummaryWriter(log_dir='logs/tensorboard/{}'.format(args.folder))
 
     # train multiple GPUs

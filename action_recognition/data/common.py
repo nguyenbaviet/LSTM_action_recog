@@ -4,7 +4,7 @@ import torch
 
 class ActionRecog(Dataset):
     """
-    load data from MERL data set
+    load data from MERL dataset
     return tensor in format [x, y] with x's shape: (None, 32, 36), y's shape (None, 32, 6)
     """
     def __init__(self, x_folder, y_folder):
@@ -38,13 +38,31 @@ class ActionRecog(Dataset):
         y = np.array(new_y, dtype=float)
         return TensorDataset(torch.from_numpy(x).float(), torch.from_numpy(y).float())
 
+class MERL_3D(Dataset):
+    """
+    Load data from MERL dataset and convert 2D coordiante to 3D coordinate
+    return tensor in format [x, y] with x's shape: (None, 32, 54), y's shape (None, 32, 6)
+    """
+    def __init__(self, x_folder, y_folder):
+        self.n_seq = 32
+        self.x_folder = x_folder
+        self.y_folder = y_folder
+        self.data = self.get_data()
+    def get_x(self):
+        with open(self.x_folder) as f:
+            file = f.read().splitlines()
+            x = np.array([i for i in [row.split(',') for row in file]], dtype= np.float)
+        return x
+    def convert_to_3d(self, keypoints):
+        return 'hihi'
+        
 class UCI(Dataset):
     """
-    load data from UCI dataset
+    load data from HAR dataset
     return tensor in format [x, y] with x's shape: (None, 128, 9), y's shape: (None, 128, 6)
     """
     def __init__(self, x_folder, phase):
-        # x_folder : UCI HAR Dataset/
+        # x_folder : HAR HAR Dataset/
         self.x_folder = x_folder
         self.phase = phase
         self.x = self.load_x()

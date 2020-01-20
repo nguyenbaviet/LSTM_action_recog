@@ -1,5 +1,6 @@
 import os, sys
-sys.path.append(os.path.join(os.getcwd(), ''))
+# sys.path.append(os.path.join(os.getcwd()))
+sys.path.append('/home/vietnguyen/LSTM_keypoint')
 from action_recognition.model import lstm
 from action_recognition.data import common
 from action_recognition.utils.evaluation import compute_correct
@@ -42,7 +43,7 @@ def validation(val_loader, model, criterion):
     return np.mean(val_losses), correct
 
 def main(args):
-    base_link = os.getcwd()
+    base_link = '/home/vietnguyen/LSTM_keypoint'
     if(args.dataset == 1):
         train_data = common.ActionRecog(os.path.join(base_link, 'database/MERL/X_train.txt'), os.path.join(base_link, 'database/MERL/Y_train.txt'))
         val_data = common.ActionRecog(os.path.join(base_link, 'database/MERL/X_test.txt'), os.path.join(base_link, 'database/MERL/Y_test.txt'))
@@ -51,8 +52,8 @@ def main(args):
         output_size = 6
         n_seq = 32
     else:
-        train_data = common.UCI(os.path.join(base_link, 'database/HAR HAR Dataset/'), 'train')
-        val_data = common.UCI(os.path.join(base_link, 'database/HAR HAR Dataset/'), 'test')
+        train_data = common.UCI(os.path.join(base_link, 'database/UCI HAR Dataset/'), 'train')
+        val_data = common.UCI(os.path.join(base_link, 'database/UCI HAR Dataset/'), 'test')
         input_size = 9
         output_size = 6
         n_seq = 128

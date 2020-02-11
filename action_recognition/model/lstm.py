@@ -9,7 +9,7 @@ class LSTM(nn.Module):
         super(LSTM, self).__init__()
         self.hidden_size = hidden_size
         self.n_seq = n_seq
-        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=3,
+        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=2,
                             batch_first=True, bidirectional=False, dropout=0.25)
         self.fc = nn.Linear(n_seq * hidden_size, output_size)
 
@@ -50,11 +50,12 @@ class RNN(nn.Module):
         super(RNN, self).__init__()
         self.hidden_size = hidden_size
         self.n_seq = n_seq
-        self.rnn = nn.RNN(input_size=self.input_size, hidden_size= self.hidden_size, num_layers= 3, batch_first= True, dropout= 0.25)
+        self.rnn = nn.RNN(input_size=input_size, hidden_size= self.hidden_size, num_layers= 3, batch_first= True, dropout= 0.25)
         self.fc = nn.Linear(n_seq * hidden_size, output_size)
     def forward(self, x):
         self.rnn.flatten_parameters()
         out, _ = self.rnn(x)
         out = torch.reshape(out,(-1, self.n_seq * self.hidden_size))
         out = self.fc(out)
+        out = out
         return out

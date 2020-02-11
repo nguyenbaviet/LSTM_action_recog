@@ -99,3 +99,67 @@ class UCI(Dataset):
         return len(self.data)
     def __getitem__(self, item):
         return self.data[item]
+
+class KinectV2Joint:
+    def __init__(self):
+        pass
+
+    def read_json(self, link):
+        with open(link) as f:
+            file = f.read()
+        print(len(file))
+        print(file[0])
+    def draw_keypoint(self):
+        pass
+if __name__=='__main__':
+    import json
+    import cv2
+
+    base_link = '/home/nbviet/PycharmProjects/LSTM_keypoint/database/Kinect v2 joints'
+    json_link = base_link + '/kp1.json'
+    vid_link = base_link +'/cl1.webm'
+    out = cv2.VideoWriter('output5.avi', cv2.VideoWriter_fourcc(*"MJPG"), 10, (1920, 1080))
+
+    vid = cv2.VideoCapture(vid_link)
+
+    with open('keypoint_cl_2.json') as f:
+        file = json.load(f)
+    print('json:', len(file))
+    frame = 0
+    for index, f in enumerate(file):
+    # while(vid.isOpened()):
+
+        _, img = vid.read()
+        if img is None:
+            break
+        frame += 1
+        img = cv2.resize(img, (1920, 1080))
+
+        for i in range(25):
+            coordinate = (int(f[2 * i]), int(f[2 * i + 1]))
+            img = cv2.circle(img, coordinate, 5, (0, 0, 255), 3)
+        cv2.imshow('img', img)
+        out.write(img)
+        if cv2.waitKey(27) & 0xFF == ord('q'):
+            break
+
+
+    # with open(json_link) as f:
+    #     file = json.load(f)
+    # coordinate = []
+    # for f in file:
+    #     for keypoints in f['bodies']:
+    #         if keypoints['tracked']:
+    #             tmp = []
+    #             for keypoint in keypoints['joints']:
+    #                 if(keypoint['colorX'] is None):
+    #                     keypoint['colorX'] = 0
+    #                     keypoint['colorY'] = 0
+    #
+    #                 tmp.append(round(keypoint['colorX'] * 1920))
+    #                 tmp.append(round(keypoint['colorY'] * 1080))
+    #             coordinate.append(tmp)
+    #             break      # 1 person was tracked in video
+    # # coordinate = coordinate[0::3]   # data repeated 3 times
+    # with open('keypoint_cl_2.json', 'w') as f:
+    #     json.dump(coordinate, f)

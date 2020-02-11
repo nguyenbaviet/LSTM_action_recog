@@ -1,6 +1,6 @@
 import os, sys
-# sys.path.append(os.path.join(os.getcwd()))
-sys.path.append('/home/vietnguyen/LSTM_keypoint')
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
+# sys.path.append('/home/vietnguyen/LSTM_keypoint')
 from action_recognition.model import lstm
 from action_recognition.data import common
 from action_recognition.utils.evaluation import compute_correct
@@ -15,18 +15,20 @@ device = torch.device('cuda')if torch.cuda.is_available() else torch.device('cpu
 
 def train(train_loader, model, criterion, optimizer):
     model.train()
+    losses = []
     correct = 0
     for inputs, labels in train_loader:
         inputs, labels = inputs.to(device), labels.to(device)
         optimizer.zero_grad()
         output = model(inputs)
+        _, labels = torch.max(labels, 1)
         correct += compute_correct(output, labels)
-        _ ,labels = torch.max(labels, 1)
         loss = criterion(output, labels)
         loss.backward()
         nn.utils.clip_grad_norm_(model.parameters(), 5)
         optimizer.step()
-    return loss, correct
+        losses.append(loss.item())
+    return np.mean(losses), correct
 
 def validation(val_loader, model, criterion):
     model.eval()
@@ -35,15 +37,16 @@ def validation(val_loader, model, criterion):
     for inputs, labels in val_loader:
         inputs, labels = inputs.to(device), labels.to(device)
         out = model(inputs)
+        _, labels = torch.max(labels, 1)
         correct += compute_correct(out, labels)
-        _ , labels = torch.max(labels, 1)
+
         val_loss = criterion(out, labels)
         val_losses.append(val_loss.item())
 
     return np.mean(val_losses), correct
 
 def main(args):
-    base_link = '/home/vietnguyen/LSTM_keypoint'
+    base_link = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
     if(args.dataset == 1):
         train_data = common.ActionRecog(os.path.join(base_link, 'database/MERL/X_train.txt'), os.path.join(base_link, 'database/MERL/Y_train.txt'))
         val_data = common.ActionRecog(os.path.join(base_link, 'database/MERL/X_test.txt'), os.path.join(base_link, 'database/MERL/Y_test.txt'))
@@ -93,7 +96,7 @@ def main(args):
         writer.add_scalar('Acc/train', train_correct.cpu().numpy()/train_len, epoch)
         writer.add_scalar('Acc/test', val_correct.cpu().numpy()/val_len, epoch)
         if val_loss <= valid_loss_min:
-            torch.save(model.state_dict(),'{}.pt'.format(args.folder))
+            torch.save(model,'{}.pb'.format(args.folder))
     writer.close()
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

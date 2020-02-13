@@ -13,7 +13,7 @@ FOLDER = ['basket_out', 'packing', 'paying', 'scanning']
 BBOX = [[840, 350, 1470, 1080], [850, 350, 1470, 1000], [400, 430, 1000, 1080], [840, 350, 1500, 1080], [0, 0, 1920, 1080]]
 
 LABELS = {'basket_out': 0, 'packing': 1, 'paying': 2, 'scanning': 3}
-SELECTED_KEYPOINTS = [4, 5, 6, 7, 8, 9, 10, 11]
+SELECTED_KEYPOINTS = [4, 5, 7, 8, 9, 11]
 
 class Kinect:
     """
@@ -34,6 +34,7 @@ class Kinect:
         self.data = self.read_vid()
 
     def read_json(self):
+        # read data from kinect'camera and re-format it into json file
 
         with open(self.json_link) as f:
             file = json.load(f)
@@ -109,8 +110,8 @@ class Kinect:
             image = {}
             image['rights_holder'] = '---bestmonster---'
             image['license'] = '0'
-            image['filename'] = self.name + '_%04d' %id + '.jpg'
-            image['url'] = BASE_LINK + '/' + image['filename']
+            image['file_name'] = self.name + '_%04d' %id + '.jpg'
+            image['url'] = BASE_LINK + '/' + image['file_name']
             image['height'] = 1920
             image['width'] = 1080
             image['id'] = id
@@ -159,6 +160,7 @@ class Kinect:
         return json_file
 
     def read_vid(self, thr=0.01):
+        # automatic save img (after capture from video), save video ( with draw keypoints) is optionally
         cap = cv2.VideoCapture(self.vid_link)
         dir = self.dir
         if not os.path.exists(dir):
@@ -210,11 +212,14 @@ class Kinect:
         return data
 
     def create_json(self):
+        # save json file
+
         os.chdir(self.dir)
-        with open(self.name + '.json', 'w') as f:
+        with open('annotations.json', 'w') as f:
             json.dump(self.data, f)
 
     def create_label(self, n_seq):
+        # save and padding data with corresponding label
         # n_seq = 174
         label = LABELS[self.type]
         data = np.zeros(n_seq * len(self.selected_keypoints) * 2)
@@ -231,6 +236,7 @@ def xxx(action):
     if action == 'kp':
         label = []
         data = []
+        # FOLDER = ['basket_out']
         for id, folder in enumerate(FOLDER):
             base_link = '/home/vietnguyen/LSTM_keypoint/database/Kinect v2 joints/' + folder
 
@@ -240,7 +246,8 @@ def xxx(action):
             a = int(len(link) / 3)
             vid_folder = link[:a]
             json_folder = link[a:][0::2]
-
+            # vid_folder = [ base_link +'/color1580954788059.webm']
+            # json_folder = [base_link + '/skeleton1580954788059.json']
             assert len(vid_folder) == len(json_folder)
 
             for i in range(len(vid_folder)):
@@ -251,12 +258,18 @@ def xxx(action):
                 l, d = kinect.create_label(n_seq= 174)
                 label.append(l)
                 data.append(d.tolist())
-        os.chdir(BASE_LINK)
-        recog = {}
-        recog['label'] = label
-        recog['data'] = data
-        with open('action_recognition.json', 'w') as f:
-            json.dump(recog, f)
+        # os.chdir(BASE_LINK)
+        # train_d, test_d, train_l, test_l = train_test_split(data, label, test_size=0.3)
+        # train_recog = {}
+        # train_recog['label'] = train_l
+        # train_recog['data'] = train_d
+        # with open('train_recog.json', 'w') as f:
+        #     json.dump(train_recog, f)
+        # test_recog = {}
+        # test_recog['label'] = test_l
+        # test_recog['data'] = test_d
+        # with open('test_recog.json', 'w') as f:
+        #     json.dump(test_recog, f)
     elif action == 'sum':
         sum = 0
         for folder in FOLDER:
@@ -292,7 +305,7 @@ def xxx(action):
             for l in os.listdir(BASE_LINK + '/record/' + folder):
                 #append json
                 link = BASE_LINK + '/record/' + folder + '/' + l
-                with open(link + '/' + l + '.json') as f:
+                with open('annotations.json') as f:
                     data = json.load(f)
                 img = data['images']
                 annos = data['annotations']
@@ -334,7 +347,7 @@ def split(json_link, img_link):
     for img in img_train:
         shutil.copy(img_link + '/' + img, dest)
         for id in range(len(data['images'])):
-            if data['images'][id]['filename'] == img:
+            if data['images'][id]['file_name'] == img:
                 train_imgs.append(data['images'][id])
                 train_annos.append(data['annotations'][id])
     train['images'] = train_imgs
@@ -354,7 +367,7 @@ def split(json_link, img_link):
     for img in img_test:
         shutil.copy(img_link + '/' + img, dest)
         for id in range(len(data['images'])):
-            if data['images'][id]['filename'] == img:
+            if data['images'][id]['file_name'] == img:
                 test_imgs.append(data['images'][id])
                 test_annos.append(data['annotations'][id])
     test['images'] = test_imgs
@@ -369,10 +382,10 @@ def split(json_link, img_link):
 if __name__=='__main__':
 
     xxx('kp')
-    xxx('append')
-    img_link = BASE_LINK + '/images'
-    json_link = BASE_LINK + '/annotations.json'
-    split(json_link, img_link)
+    # xxx('append')
+    # img_link = BASE_LINK + '/images'
+    # json_link = BASE_LINK + '/annotations.json'
+    # split(json_link, img_link)
     # xxx('sum')
 
 

@@ -7,19 +7,19 @@ from os.path import join
 from sklearn.model_selection import train_test_split
 import numpy as np
 
-BASE_LINK = '/home/hoang/datasets/se7en11'
+BASE_LINK = os.getcwd()
 # FOLDER = ['basket_out', 'packing', 'paying', 'scanning', 'go_out']
 FOLDER = ['basket_out', 'packing', 'paying', 'scanning']
 BBOX = [[840, 350, 1470, 1080], [850, 350, 1470, 1000], [400, 430, 1000, 1080], [840, 350, 1500, 1080], [0, 0, 1920, 1080]]
 
 LABELS = {'basket_out': 0, 'packing': 1, 'paying': 2, 'scanning': 3}
-SELECTED_KEYPOINTS = [4, 5, 7, 8, 9, 11]
+SELECTED_KEYPOINTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
 class Kinect:
     """
     Use data from kinect's camera to get new form json, which serve for training later.
     """
-    def __init__(self, vid_link, json_link, selected_keypoints, bbox, type, save_vid = False):
+    def __init__(self, vid_link, json_link, selected_keypoints, bbox):
         #selected_keypoints is an array of keypoints used
 
         self.vid_link = vid_link
@@ -27,11 +27,28 @@ class Kinect:
         self.selected_keypoints = selected_keypoints
         self.name = vid_link.split('/')[-1].split('.')[0]
         self.bbox = bbox
-        self.type = type
-        self.dir = BASE_LINK + '/record/' + self.type + '/' + self.name
-        self.save_vid = save_vid
+        self.dir = BASE_LINK + '/record/DATN/' + self.name
 
-        self.data = self.read_vid()
+        self.num_img = self.get_num_img()
+        self.data = self.read_json()
+
+    def get_num_img(self):
+        img_dir = self.dir + '/images'
+        if not os.path.exists(img_dir):
+            os.makedirs(img_dir)
+            os.chdir(img_dir)
+            cap = cv2.VideoCapture(self.vid_link)
+            id = 0
+            while True:
+                _, img = cap.read()
+                if img is None:
+                    break
+                img = cv2.resize(img, (1280, 720))
+                name = self.name + '_%04d' % (id) + '.jpg'
+                cv2.imwrite(name, img)
+                id += 1
+        os.chdir(BASE_LINK)
+        return len(os.listdir(img_dir))
 
     def read_json(self):
         # read data from kinect'camera and re-format it into json file
@@ -106,7 +123,9 @@ class Kinect:
 
         categories['selected_keypoint'] = self.selected_keypoints
         cat.append(categories)
-        for id, f in enumerate(file):
+        file = file[0::2]
+        # for id, f in enumerate(file[-self.num_img:]):
+        for id, f in enumerate(file[:self.num_img]):
             image = {}
             image['rights_holder'] = '---bestmonster---'
             image['license'] = '0'
@@ -159,57 +178,36 @@ class Kinect:
         json_file['categories'] = cat
         return json_file
 
-    def read_vid(self, thr=0.01):
+    def draw_kps(self, thr=0.01):
         # automatic save img (after capture from video), save video ( with draw keypoints) is optionally
-        cap = cv2.VideoCapture(self.vid_link)
-        dir = self.dir
-        if not os.path.exists(dir):
-            os.makedirs(dir)
 
-        if self.save_vid:
-            os.chdir(dir)
-            out_vid = cv2.VideoWriter(self.name + '.avi', cv2.VideoWriter_fourcc(*"MJPG"), 10, (1920, 1080))
-        save_img = False if os.path.exists(dir + '/images') else True
-        if save_img:
-            img_dir = dir + '/images'
-            os.makedirs(img_dir)
-            os.chdir(img_dir)
-        data = self.read_json()
-        for id,keypoint in enumerate(data['annotations']):
+        imgs = [self.dir + '/images/' + l for l in os.listdir(self.dir + '/images')]
+        if not os.path.exists(self.dir):
+            os.makedirs(self.dir)
+
+        os.chdir(self.dir)
+        out_vid = cv2.VideoWriter(self.name + '.avi', cv2.VideoWriter_fourcc(*"MJPG"), 5, (1920, 1080))
+
+        for id,keypoint in enumerate(self.data['annotations']):
             keypoint = keypoint['keypoints']
-            _, img = cap.read()
-            if img is None:
-                break
+            img = cv2.imread(imgs[id])
             img = cv2.resize(img, (1920, 1080))
-            if save_img:
+            BODY_PARTS_KPT_IDS = []
+            skeleton = self.data['categories'][0]['skeletons']
+            for i in range(24):
+                BODY_PARTS_KPT_IDS.append(skeleton[str(i)])
 
-                name = self.name + '_%04d' %(id) + '.jpg'
-                cv2.imwrite(name, img)
-            if self.save_vid:
-                BODY_PARTS_KPT_IDS = []
-                skeleton = data['categories'][0]['skeletons']
-                for i in range(24):
-                    BODY_PARTS_KPT_IDS.append(skeleton[str(i)])
-
-                for i in self.selected_keypoints:
-                    coordinate = (int(keypoint[3*i]), int(keypoint[3*i + 1]))
-                    img = cv2.circle(img, coordinate, 5, (0, 0, 255), 3)
-                for id in range(len(BODY_PARTS_KPT_IDS)):
-                    part = BODY_PARTS_KPT_IDS[id]
-                    if (keypoint[3 * part[0] + 2] < thr or keypoint[3*part[1] + 2] < thr):
-                        continue
-                    coordinate1 = (keypoint[3 * part[0]], keypoint[3 * part[0] + 1])
-                    coordinate2 = (keypoint[3 * part[1]], keypoint[3 * part[1] + 1])
-                    cv2.line(img, coordinate1, coordinate2, (0, 255, 255), 2)
-                out_vid.write(img)
-
-        num_img = len(os.listdir(self.dir + '/images'))
-
-        data['images'] = data['images'][:num_img]
-        data['annotations'] = data['annotations'][:num_img]
-        data['categories'] = data['categories']
-
-        return data
+            for i in self.selected_keypoints:
+                coordinate = (int(keypoint[3*i]), int(keypoint[3*i + 1]))
+                img = cv2.circle(img, coordinate, 5, (0, 0, 255), 3)
+            for id in range(len(BODY_PARTS_KPT_IDS)):
+                part = BODY_PARTS_KPT_IDS[id]
+                if (keypoint[3 * part[0] + 2] < thr or keypoint[3*part[1] + 2] < thr):
+                    continue
+                coordinate1 = (keypoint[3 * part[0]], keypoint[3 * part[0] + 1])
+                coordinate2 = (keypoint[3 * part[1]], keypoint[3 * part[1] + 1])
+                cv2.line(img, coordinate1, coordinate2, (0, 255, 255), 2)
+            out_vid.write(img)
 
     def create_json(self):
         # save json file
@@ -218,25 +216,10 @@ class Kinect:
         with open('annotations.json', 'w') as f:
             json.dump(self.data, f)
 
-    def create_label(self, n_seq):
-        # save and padding data with corresponding label
-        # n_seq = 174
-        label = LABELS[self.type]
-        data = np.zeros(n_seq * len(self.selected_keypoints) * 2)
-        len_sl_kp = len(self.selected_keypoints)
-
-        for id in range(len(self.data['annotations'])):
-            for i in range(len_sl_kp):
-                data[2 * id * len_sl_kp + 2*i] = self.data['annotations'][id]['keypoints'][self.selected_keypoints[i] * 3]
-                data[2 * id * len_sl_kp + 2*i + 1] = self.data['annotations'][id]['keypoints'][
-                    self.selected_keypoints[i] * 3 + 1]
-        return label, data
-
-def xxx(action):
+def action(action):
     if action == 'kp':
         label = []
         data = []
-        # FOLDER = ['basket_out']
         for id, folder in enumerate(FOLDER):
             base_link = '/home/vietnguyen/LSTM_keypoint/database/Kinect v2 joints/' + folder
 
@@ -246,8 +229,7 @@ def xxx(action):
             a = int(len(link) / 3)
             vid_folder = link[:a]
             json_folder = link[a:][0::2]
-            # vid_folder = [ base_link +'/color1580954788059.webm']
-            # json_folder = [base_link + '/skeleton1580954788059.json']
+
             assert len(vid_folder) == len(json_folder)
 
             for i in range(len(vid_folder)):
@@ -258,78 +240,66 @@ def xxx(action):
                 l, d = kinect.create_label(n_seq= 174)
                 label.append(l)
                 data.append(d.tolist())
-        # os.chdir(BASE_LINK)
-        # train_d, test_d, train_l, test_l = train_test_split(data, label, test_size=0.3)
-        # train_recog = {}
-        # train_recog['label'] = train_l
-        # train_recog['data'] = train_d
-        # with open('train_recog.json', 'w') as f:
-        #     json.dump(train_recog, f)
-        # test_recog = {}
-        # test_recog['label'] = test_l
-        # test_recog['data'] = test_d
-        # with open('test_recog.json', 'w') as f:
-        #     json.dump(test_recog, f)
-    elif action == 'sum':
-        sum = 0
-        for folder in FOLDER:
-            link = BASE_LINK + '/record/' + folder
-            for l in os.listdir(link):
-                file_link = link + '/' + l + '/images'
-                sum = len(os.listdir(file_link)) if sum < len(os.listdir(file_link)) else sum
-                if(len(os.listdir(file_link)) == 174):
-                    print(file_link)
-        print(sum)
     elif action == 'bbox':
-        img = cv2.imread('record/scanning/color1580956167912/images/color1580956167912_0001.jpg')
-        img = cv2.resize(img, (960, 540))
-        cv2.imshow('hi', img)
-        if cv2.waitKey(0) & 0xFF == ord('q'):
-            cv2.destroyAllWindows()
+        for f in FOLDER:
+            img = cv2.imread('/home/nbviet/Desktop/record/hihi/color' + f + '/images/color' + f +'_0000.jpg')
+            img = cv2.resize(img, (960, 540))
+            cv2.imshow('hi', img)
+            if cv2.waitKey(0) & 0xFF == ord('q'):
+                cv2.destroyAllWindows()
     elif action == 'video':
         out_vid = cv2.VideoWriter('test.avi', cv2.VideoWriter_fourcc(*"MJPG"), 10, (1920, 1080))
         os.chdir(BASE_LINK)
-        for img in ['record/scanning/color1580956167912/images/' + l for l in
-                    os.listdir('record/scanning/color1580956167912/images')]:
-            img = cv2.imread(img)
-            img = cv2.rectangle(img, (840, 350), (1500, 1270), (0, 0, 255), 3)
-            cv2.imshow('hi', img)
-            if cv2.waitKey(5) & 0xFF == ord('q'):
-                break
-            out_vid.write(img)
+        for id, f in enumerate(FOLDER):
+            for img in ['/home/nbviet/Desktop/record/hihi/color' + f + '/images/' + l for l in
+                        os.listdir('/home/nbviet/Desktop/record/hihi/color'+ f +'/images')]:
+                img = cv2.imread(img)
+                img = cv2.rectangle(img, (BBOX[id][0], BBOX[id][1]), (BBOX[id][2], BBOX[id][3]), (0, 0, 255), 3)
+                cv2.imshow('hi', img)
+                if cv2.waitKey(5) & 0xFF == ord('q'):
+                    break
+                out_vid.write(img)
         cv2.destroyAllWindows()
     elif action == 'append':
         image_arr = []
         annotations_arr = []
-        for folder in FOLDER:
-            for l in os.listdir(BASE_LINK + '/record/' + folder):
-                #append json
-                link = BASE_LINK + '/record/' + folder + '/' + l
-                with open('annotations.json') as f:
-                    data = json.load(f)
-                img = data['images']
-                annos = data['annotations']
-                for i in range(len(img)):
-                    image_arr.append(img[i])
-                    annotations_arr.append(annos[i])
+        img_id = 0
+        for id,f in enumerate(os.listdir(BASE_LINK)):
+            with open(BASE_LINK + f + '/annotations.json') as file:
+                data = json.load(file)
+            img = data['images']
+            annos = data['annotations']
+            for i in range(len(img)):
+                img[i]['id'] = img_id
+                annos[i]['image_id'] = img_id
+                annos[i]['bbox'] = BBOX[id]
+                image_arr.append(img[i])
+                annotations_arr.append(annos[i])
+                img_id += 1
 
-                #append images
-                if not os.path.exists(BASE_LINK + '/images'):
-                    os.makedirs(BASE_LINK + '/images')
+            # append images
+            if not os.path.exists(BASE_LINK + '/images'):
+                os.makedirs(BASE_LINK + '/images')
 
-                link = BASE_LINK + '/record/' + folder + '/' + l + '/images'
-                for l in os.listdir(link):
-                    shutil.copy(link + '/' + l, BASE_LINK + '/images')
+            # link = BASE_LINK + '/record/' + folder + '/' + l + '/images'
+            link = BASE_LINK + '/record/hihi/' + l + '/images'
+            for l in os.listdir(link):
+                shutil.copy(link + '/' + l, BASE_LINK + '/images')
         final_json = {}
         final_json['images'] = image_arr
         final_json['annotations'] = annotations_arr
         final_json['categories'] = data['categories']
 
-        os.chdir(BASE_LINK)
+        os.chdir('/home/nbviet/Desktop')
         with open('annotations.json', 'w') as f:
             json.dump(final_json, f)
 
 def split(json_link, img_link):
+    """
+    input: img_link: link to img's folder
+           json_link: link to annotations's file
+    output: train set and test set, each set contains img's folder and annotations's file
+    """
     img = [link for link in os.listdir(img_link)]
 
     img_train, img_test = train_test_split(img, test_size=0.3)
@@ -377,15 +347,26 @@ def split(json_link, img_link):
     with open('test/annotations.json', 'w') as f:
         json.dump(test, f)
 
+def create_data(vid_folder, json_folder, draw_kps=False):
+    """
+    input: an array of vid_link, an array of corresponding json_link
+    output: img's folder and annotations for each link
+    """
+    for i in range(len(vid_folder)):
+        kinect = Kinect(vid_folder[i], json_folder[i], SELECTED_KEYPOINTS, BBOX[0])
+        kinect.create_json()
+        if draw_kps:
+            kinect.draw_kps()
 
 
 if __name__=='__main__':
 
-    xxx('kp')
-    # xxx('append')
-    # img_link = BASE_LINK + '/images'
-    # json_link = BASE_LINK + '/annotations.json'
-    # split(json_link, img_link)
-    # xxx('sum')
-
-
+    # FOLDER = ['1581647146889', '1581648779050', '1581649157582', '1581649440125', '1581650686624', '1581650766949', '1581650923659']
+    # BBOX = [[620, 220, 1360, 960], [650, 220, 1360, 960], [560, 220, 1360, 960], [580, 260, 1360, 960], [640, 280, 1360, 960], [640, 280, 1360, 960], [640, 280, 1360, 960]]
+    # link = BASE_LINK + '/database/DATN/'
+    # a = os.listdir(link)
+    # vid_folder = [link + l for l in a[0::2]]
+    # json_folder = [link + l for l in a[1::2]]
+    vid_folder = ['/media/nbviet/UBUNTU 18_0/color1581907338881.webm']
+    json_folder = ['/media/nbviet/UBUNTU 18_0/skeleton1581907338881.json']
+    create_data(vid_folder, json_folder, True)
